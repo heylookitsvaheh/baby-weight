@@ -45,6 +45,7 @@
   .form-card iframe { display: block; width: 100%; height: 780px; border: 0; }
   .form-alt { font-size: .85rem; color: var(--muted); margin: 8px 12px; }
   .form-alt a { color: var(--accent); }
+  .note { font-size: .85rem; color: var(--muted); margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
   .intro { max-width: 65ch; margin-bottom: 28px; }
   .intro p { margin: 0 0 12px; }
   .card {
@@ -118,6 +119,7 @@
   <section class="card">
     <div class="label" id="listLabel">Guesses, lightest to heaviest</div>
     <ol id="list"></ol>
+    <p class="note" id="rejected" hidden></p>
   </section>
 
   <section class="card">
@@ -128,8 +130,8 @@
 </main>
 
 <script>
-  // ── Edit here ───────────────────────────────────────────────
-  const guesses = [
+  // ── Bets placed before the form existed ─────────────────────
+  const earlyBets = [
     { name: "Randall", lbs: 9,  oz: 3  },
     { name: "Ryan",    lbs: 8,  oz: 9  },
     { name: "Steph",   lbs: 9,  oz: 2  },
@@ -141,79 +143,144 @@
   ];
   // When he arrives, fill this in, e.g. { lbs: 9, oz: 4 }
   const actual = null;
+  // Form responses ("Form Responses 1" tab), read live
+  const SHEET_ID = "11kz2Vt51pfqsCJg7f_KmXuYqfyZcGPegPcZmfJ2JKlY";
+  const SHEET_TAB = "Form Responses 1";
   // ────────────────────────────────────────────────────────────
 
-  const openBet = document.getElementById("openBet");
-  const betForm = document.getElementById("betForm");
-  openBet.addEventListener("click", () => {
-    betForm.hidden = !betForm.hidden;
-    openBet.setAttribute("aria-expanded", String(!betForm.hidden));
-    openBet.textContent = betForm.hidden ? "Make My Bet" : "Hide form";
-  });
-
-  const toOz = g => g.lbs * 16 + g.oz;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const fmt = oz => `${Math.floor(oz / 16)} lbs, ${oz % 16} oz`;
-  const sorted = guesses.map(g => ({ ...g, t: toOz(g) })).sort((a, b) => a.t - b.t);
-  const actualOz = actual ? toOz(actual) : null;
+  const actualOz = actual ? actual.lbs * 16 + actual.oz : null;
 
-  let ranked = sorted;
-  if (actualOz !== null) {
-    // Price Is Right: closest without going over; if everyone went over, closest wins
-    const over = g => g.t > actualOz;
-    ranked = [...sorted].sort((a, b) => (over(a) - over(b)) || Math.abs(a.t - actualOz) - Math.abs(b.t - actualOz));
-    const best = ranked[0].t;
-    ranked.forEach(g => g.win = g.t === best);
-    const winners = ranked.filter(g => g.win).map(g => g.name).join(" & ");
-    document.getElementById("banner").innerHTML =
-      `<section class="card banner">He's here — ${fmt(actualOz)}! Closest guess: ${winners}.</section>`;
-    document.getElementById("listLabel").textContent = "Leaderboard";
-  }
-
-  // Number line
-  const all = sorted.map(g => g.t).concat(actualOz ?? []);
-  const lo = Math.floor(Math.min(...all) / 16) * 16;
-  const hi = Math.ceil((Math.max(...all) + 1) / 16) * 16;
-  const pct = oz => ((oz - lo) / (hi - lo)) * 100;
-  const track = document.getElementById("track");
-  for (let l = lo; l <= hi; l += 16) {
-    track.insertAdjacentHTML("beforeend",
-      `<div class="tick" style="left:${pct(l)}%">${l / 16} lb</div>`);
-  }
-  // Stagger labels so close guesses don't overlap
-  sorted.forEach((g, i) => {
-    const top = [36, 4, 20][i % 3];
-    track.insertAdjacentHTML("beforeend",
-      `<div class="pin${g.win ? " win" : ""}" style="left:${pct(g.t)}%;top:${top}px">
-         <div class="name">${g.name}</div>
-         <div style="height:${44 - top}px;width:1px;background:var(--line);margin:0 auto"></div>
-         <div class="dot"></div></div>`);
+  $("openBet").addEventListener("click", () => {
+    const f = $("betForm");
+    f.hidden = !f.hidden;
+    $("openBet").setAttribute("aria-expanded", String(!f.hidden));
+    $("openBet").textContent = f.hidden ? "Make My Bet" : "Hide form";
   });
-  if (actualOz !== null) {
-    track.insertAdjacentHTML("beforeend",
-      `<div class="pin actual" style="left:${pct(actualOz)}%;top:63px"><div class="dot"></div></div>`);
+
+  // Combine early bets with form responses, in submission order.
+  // A weight can only be claimed once; a later bet from the same name replaces their earlier one.
+  function combine(responses) {
+    const byName = new Map(), byWeight = new Map(), rejected = [];
+    for (const b of [...earlyBets, ...responses]) {
+      const key = b.name.trim().toLowerCase();
+      const t = b.lbs * 16 + b.oz;
+      const holder = byWeight.get(t);
+      if (holder && holder !== key) { rejected.push({ name: b.name, t, takenBy: byName.get(holder).name }); continue; }
+      const prev = byName.get(key);
+      if (prev) byWeight.delete(prev.t);
+      byName.set(key, { name: b.name.trim(), t });
+      byWeight.set(t, key);
+    }
+    return { bets: [...byName.values()], rejected };
   }
 
-  // List
-  document.getElementById("list").innerHTML = ranked.map((g, i) => {
-    const d = actualOz !== null ? Math.abs(g.t - actualOz) : null;
-    return `<li class="${g.win ? "win" : ""}">
-      <span class="rank">${i + 1}</span>
-      <span class="who">${g.name}</span>
-      <span class="wt">${fmt(g.t)}</span>
-      ${d !== null ? `<span class="diff">${d === 0 ? "exact!" : `${d} oz ${g.t > actualOz ? "over" : "under"}`}</span>` : ""}
-    </li>`;
-  }).join("");
+  function render({ bets, rejected }) {
+    const sorted = [...bets].sort((a, b) => a.t - b.t);
+    let ranked = sorted.map(b => ({ ...b, win: false }));
 
-  // Stats
-  const ts = sorted.map(g => g.t);
-  const avg = Math.round(ts.reduce((a, b) => a + b, 0) / ts.length);
-  const mid = ts.length % 2 ? ts[(ts.length - 1) / 2]
-    : Math.round((ts[ts.length / 2 - 1] + ts[ts.length / 2]) / 2);
-  document.getElementById("stats").innerHTML = [
-    ["Average guess", fmt(avg)],
-    ["Median guess", fmt(mid)],
-    ["Range", `${fmt(ts[ts.length - 1] - ts[0])}`],
-  ].map(([k, v]) => `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`).join("");
+    if (actualOz !== null && ranked.length) {
+      // Price Is Right: closest without going over; if everyone went over, closest wins
+      const over = g => g.t > actualOz;
+      ranked.sort((a, b) => (over(a) - over(b)) || Math.abs(a.t - actualOz) - Math.abs(b.t - actualOz));
+      const best = ranked[0].t;
+      ranked.forEach(g => g.win = g.t === best);
+      const winners = ranked.filter(g => g.win).map(g => esc(g.name)).join(" & ");
+      $("banner").innerHTML = `<section class="card banner">He's here: ${fmt(actualOz)}! Winner: ${winners}.</section>`;
+      $("listLabel").textContent = "Leaderboard";
+    }
+    const winSet = new Set(ranked.filter(g => g.win).map(g => g.t));
+
+    // Number line
+    const track = $("track");
+    track.innerHTML = '<div class="axis"></div>';
+    const all = sorted.map(g => g.t).concat(actualOz ?? []);
+    if (all.length) {
+      const lo = Math.floor(Math.min(...all) / 16) * 16;
+      const hi = Math.ceil((Math.max(...all) + 1) / 16) * 16;
+      const pct = oz => ((oz - lo) / (hi - lo)) * 100;
+      for (let l = lo; l <= hi; l += 16) {
+        track.insertAdjacentHTML("beforeend", `<div class="tick" style="left:${pct(l)}%">${l / 16} lb</div>`);
+      }
+      // Stagger labels across three heights so close bets don't overlap
+      sorted.forEach((g, i) => {
+        const top = [36, 4, 20][i % 3];
+        track.insertAdjacentHTML("beforeend",
+          `<div class="pin${winSet.has(g.t) ? " win" : ""}" style="left:${pct(g.t)}%;top:${top}px">
+             <div class="name">${esc(g.name)}</div>
+             <div style="height:${44 - top}px;width:1px;background:var(--line);margin:0 auto"></div>
+             <div class="dot"></div></div>`);
+      });
+      if (actualOz !== null) {
+        track.insertAdjacentHTML("beforeend",
+          `<div class="pin actual" style="left:${pct(actualOz)}%;top:63px"><div class="dot"></div></div>`);
+      }
+    }
+
+    // List
+    $("list").innerHTML = ranked.map((g, i) => {
+      const d = actualOz !== null ? Math.abs(g.t - actualOz) : null;
+      return `<li class="${g.win ? "win" : ""}">
+        <span class="rank">${i + 1}</span>
+        <span class="who">${esc(g.name)}</span>
+        <span class="wt">${fmt(g.t)}</span>
+        ${d !== null ? `<span class="diff">${d === 0 ? "exact!" : `${d} oz ${g.t > actualOz ? "over" : "under"}`}</span>` : ""}
+      </li>`;
+    }).join("");
+
+    // Bets that tried to take a weight someone already had
+    const rj = $("rejected");
+    rj.hidden = !rejected.length;
+    rj.innerHTML = rejected.length ? "Not counted, weight already taken: " +
+      rejected.map(r => `${esc(r.name)} (${fmt(r.t)}, taken by ${esc(r.takenBy)})`).join("; ") + "." : "";
+
+    // Stats
+    const ts = sorted.map(g => g.t);
+    if (!ts.length) { $("stats").innerHTML = ""; return; }
+    const avg = Math.round(ts.reduce((a, b) => a + b, 0) / ts.length);
+    const mid = ts.length % 2 ? ts[(ts.length - 1) / 2]
+      : Math.round((ts[ts.length / 2 - 1] + ts[ts.length / 2]) / 2);
+    $("stats").innerHTML = [
+      ["Average bet", fmt(avg)],
+      ["Median bet", fmt(mid)],
+      ["Bets placed", String(ts.length)],
+    ].map(([k, v]) => `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`).join("");
+  }
+
+  // Read the form responses from the Google Sheet (JSONP, so no login or CORS setup is needed)
+  const num = v => { const n = parseInt(String(v ?? "").replace(/[^\d]/g, ""), 10); return Number.isFinite(n) ? n : NaN; };
+  window.__betsLoaded = data => {
+    try {
+      const table = data && data.table;
+      if (!table) return;
+      const labels = table.cols.map(c => String(c.label || "").trim().toLowerCase());
+      const iName = labels.indexOf("name"), iLbs = labels.indexOf("lbs"), iOz = labels.indexOf("oz");
+      const responses = (table.rows || []).map(r => {
+        const cell = i => r.c && r.c[i] ? (r.c[i].v ?? r.c[i].f) : null;
+        return { name: String(cell(iName) ?? "").trim(), lbs: num(cell(iLbs)), oz: num(cell(iOz)) };
+      }).filter(b => b.name && b.lbs >= 3 && b.lbs <= 15 && b.oz >= 0 && b.oz <= 15);
+      render(combine(responses));
+    } catch (_) { /* keep what's showing */ }
+  };
+  // The sheet may answer with its default callback name instead of ours
+  window.google = window.google || {};
+  google.visualization = google.visualization || {};
+  google.visualization.Query = google.visualization.Query || {};
+  google.visualization.Query.setResponse = window.__betsLoaded;
+
+  function loadResponses() {
+    const s = document.createElement("script");
+    s.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=${encodeURIComponent("out:json;responseHandler:__betsLoaded")}` +
+      `&sheet=${encodeURIComponent(SHEET_TAB)}&headers=1&_=${Date.now()}`;
+    s.onload = s.onerror = () => s.remove();
+    document.head.appendChild(s);
+  }
+
+  render(combine([]));
+  loadResponses();
+  setInterval(loadResponses, 60000);
 </script>
 </body>
 </html>
