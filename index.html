@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baby Weight Pool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f3ee;
+    --card: #ffffff;
+    --ink: #2b2a33;
+    --muted: #7a7684;
+    --line: #e7e1d8;
+    --accent: #4f7cac;
+    --accent-soft: #dbe7f3;
+    --win: #2f8f6b;
+    --win-soft: #dcefe6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181c; --card: #212228; --ink: #ecebf0; --muted: #9a97a6;
+      --line: #33343c; --accent: #8db4dc; --accent-soft: #2a3644;
+      --win: #6fcfa6; --win-soft: #213a30;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: Inter, system-ui, sans-serif; line-height: 1.5;
+  }
+  main { max-width: 680px; margin: 0 auto; padding: 48px 16px 64px; }
+  h1 {
+    font-family: Fraunces, Georgia, serif; font-weight: 700;
+    font-size: clamp(2rem, 6vw, 2.8rem); line-height: 1.1; margin: 0 0 32px;
+  }
+  .sub { color: var(--muted); margin: 0 0 32px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; padding: 20px; margin-bottom: 20px;
+  }
+  .label { font-size: .75rem; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+
+  /* Number line */
+  .track { position: relative; height: 120px; margin: 8px 8px 0; }
+  .axis { position: absolute; left: 0; right: 0; top: 70px; height: 2px; background: var(--line); }
+  .tick { position: absolute; top: 78px; transform: translateX(-50%);
+    font-size: .75rem; color: var(--muted); }
+  .tick::before { content: ""; position: absolute; left: 50%; top: -10px;
+    width: 1px; height: 6px; background: var(--line); }
+  .pin { position: absolute; transform: translateX(-50%); text-align: center; }
+  .pin .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent);
+    border: 2px solid var(--card); margin: 0 auto; }
+  .pin .name { font-size: .72rem; font-weight: 600; white-space: nowrap; }
+  .pin.win .dot { background: var(--win); }
+  .pin.actual .dot { background: var(--ink); width: 14px; height: 14px; }
+
+  /* List */
+  ol { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; align-items: center; gap: 12px; padding: 12px 0;
+    border-top: 1px solid var(--line); }
+  li:first-child { border-top: 0; }
+  .rank { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft);
+    color: var(--accent); font-weight: 600; font-size: .85rem;
+    display: grid; place-items: center; flex-shrink: 0; }
+  .who { flex: 1; font-weight: 500; }
+  .wt { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .diff { font-size: .8rem; color: var(--muted); min-width: 72px; text-align: right;
+    font-variant-numeric: tabular-nums; }
+  li.win .rank { background: var(--win-soft); color: var(--win); }
+  li.win .who::after { content: " 🏆"; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stat .v { font-family: Fraunces, Georgia, serif; font-size: 1.4rem; font-weight: 700; }
+  .stat .k { font-size: .8rem; color: var(--muted); }
+  .banner { background: var(--win-soft); color: var(--win); border-color: transparent;
+    font-weight: 500; }
+  footer { color: var(--muted); font-size: .8rem; text-align: center; margin-top: 32px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>How big will Donatello Versace be?</h1>
+
+  <div id="banner"></div>
+
+  <section class="card">
+    <div class="label">The spread</div>
+    <div class="track" id="track"><div class="axis"></div></div>
+  </section>
+
+  <section class="card">
+    <div class="label" id="listLabel">Guesses, lightest to heaviest</div>
+    <ol id="list"></ol>
+  </section>
+
+  <section class="card">
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <footer>Closest guess wins. Updated as guesses come in.</footer>
+</main>
+
+<script>
+  // ── Edit here ───────────────────────────────────────────────
+  const guesses = [
+    { name: "Randall", lbs: 8,  oz: 2  },
+    { name: "Ryan",    lbs: 8,  oz: 9  },
+    { name: "Steph",   lbs: 9,  oz: 2  },
+    { name: "Colleen", lbs: 9,  oz: 13 },
+    { name: "Vaheh",   lbs: 10, oz: 0  },
+    { name: "Derik",   lbs: 11, oz: 0  },
+  ];
+  // When he arrives, fill this in, e.g. { lbs: 9, oz: 4 }
+  const actual = null;
+  // ────────────────────────────────────────────────────────────
+
+  const toOz = g => g.lbs * 16 + g.oz;
+  const fmt = oz => `${Math.floor(oz / 16)} lbs, ${oz % 16} oz`;
+  const sorted = guesses.map(g => ({ ...g, t: toOz(g) })).sort((a, b) => a.t - b.t);
+  const actualOz = actual ? toOz(actual) : null;
+
+  let ranked = sorted;
+  if (actualOz !== null) {
+    ranked = [...sorted].sort((a, b) => Math.abs(a.t - actualOz) - Math.abs(b.t - actualOz));
+    const best = Math.abs(ranked[0].t - actualOz);
+    ranked.forEach(g => g.win = Math.abs(g.t - actualOz) === best);
+    const winners = ranked.filter(g => g.win).map(g => g.name).join(" & ");
+    document.getElementById("banner").innerHTML =
+      `<section class="card banner">He's here — ${fmt(actualOz)}! Closest guess: ${winners}.</section>`;
+    document.getElementById("listLabel").textContent = "Leaderboard";
+  }
+
+  // Number line
+  const all = sorted.map(g => g.t).concat(actualOz ?? []);
+  const lo = Math.floor(Math.min(...all) / 16) * 16;
+  const hi = Math.ceil((Math.max(...all) + 1) / 16) * 16;
+  const pct = oz => ((oz - lo) / (hi - lo)) * 100;
+  const track = document.getElementById("track");
+  for (let l = lo; l <= hi; l += 16) {
+    track.insertAdjacentHTML("beforeend",
+      `<div class="tick" style="left:${pct(l)}%">${l / 16} lb</div>`);
+  }
+  // Stagger labels so close guesses don't overlap
+  sorted.forEach((g, i) => {
+    const up = i % 2 === 0;
+    track.insertAdjacentHTML("beforeend",
+      `<div class="pin${g.win ? " win" : ""}" style="left:${pct(g.t)}%;top:${up ? 26 : 4}px">
+         <div class="name">${g.name}</div>
+         <div style="height:${up ? 18 : 40}px;width:1px;background:var(--line);margin:0 auto"></div>
+         <div class="dot"></div></div>`);
+  });
+  if (actualOz !== null) {
+    track.insertAdjacentHTML("beforeend",
+      `<div class="pin actual" style="left:${pct(actualOz)}%;top:63px"><div class="dot"></div></div>`);
+  }
+
+  // List
+  document.getElementById("list").innerHTML = ranked.map((g, i) => {
+    const d = actualOz !== null ? Math.abs(g.t - actualOz) : null;
+    return `<li class="${g.win ? "win" : ""}">
+      <span class="rank">${i + 1}</span>
+      <span class="who">${g.name}</span>
+      <span class="wt">${fmt(g.t)}</span>
+      ${d !== null ? `<span class="diff">${d === 0 ? "exact!" : `${d} oz off`}</span>` : ""}
+    </li>`;
+  }).join("");
+
+  // Stats
+  const ts = sorted.map(g => g.t);
+  const avg = Math.round(ts.reduce((a, b) => a + b, 0) / ts.length);
+  const mid = ts.length % 2 ? ts[(ts.length - 1) / 2]
+    : Math.round((ts[ts.length / 2 - 1] + ts[ts.length / 2]) / 2);
+  document.getElementById("stats").innerHTML = [
+    ["Average guess", fmt(avg)],
+    ["Median guess", fmt(mid)],
+    ["Range", `${fmt(ts[ts.length - 1] - ts[0])}`],
+  ].map(([k, v]) => `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`).join("");
+</script>
+</body>
+</html>
