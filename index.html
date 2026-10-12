@@ -112,6 +112,8 @@
     { name: "Colleen", lbs: 9,  oz: 13 },
     { name: "Vaheh",   lbs: 10, oz: 0  },
     { name: "Derik",   lbs: 11, oz: 0  },
+    { name: "Chris",   lbs: 10, oz: 3  },
+    { name: "Quinn",   lbs: 9,  oz: 5  },
   ];
   // When he arrives, fill this in, e.g. { lbs: 9, oz: 4 }
   const actual = null;
@@ -145,11 +147,11 @@
   }
   // Stagger labels so close guesses don't overlap
   sorted.forEach((g, i) => {
-    const up = i % 2 === 0;
+    const top = [36, 4, 20][i % 3];
     track.insertAdjacentHTML("beforeend",
-      `<div class="pin${g.win ? " win" : ""}" style="left:${pct(g.t)}%;top:${up ? 26 : 4}px">
+      `<div class="pin${g.win ? " win" : ""}" style="left:${pct(g.t)}%;top:${top}px">
          <div class="name">${g.name}</div>
-         <div style="height:${up ? 18 : 40}px;width:1px;background:var(--line);margin:0 auto"></div>
+         <div style="height:${44 - top}px;width:1px;background:var(--line);margin:0 auto"></div>
          <div class="dot"></div></div>`);
   });
   if (actualOz !== null) {
