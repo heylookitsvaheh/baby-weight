@@ -33,9 +33,11 @@
   main { max-width: 680px; margin: 0 auto; padding: 48px 16px 64px; }
   h1 {
     font-family: Fraunces, Georgia, serif; font-weight: 700;
-    font-size: clamp(2rem, 6vw, 2.8rem); line-height: 1.1; margin: 0 0 32px;
+    font-size: clamp(2rem, 6vw, 2.8rem); line-height: 1.1; margin: 0 0 16px;
   }
   .sub { color: var(--muted); margin: 0 0 32px; }
+  .intro { max-width: 65ch; margin-bottom: 28px; }
+  .intro p { margin: 0 0 12px; }
   .card {
     background: var(--card); border: 1px solid var(--line);
     border-radius: 16px; padding: 20px; margin-bottom: 20px;
@@ -83,6 +85,10 @@
 <body>
 <main>
   <h1>How big will Donatello Versace be?</h1>
+  <div class="intro">
+    <p>We are ONE WEEK away from Donatello’s arrival! Everyone is guessing what the baby’s weight will be at birth. For context: The baby weighed approximately 4lbs, 6 oz at 30 weeks and 7lbs, 5oz at 34 weeks. C-section is going to be at 39 weeks. The biggest baby born in Colleen’s family was over 11 lbs, but she and I were both about 8.5 lbs.</p>
+    <p>Below are everyone’s guesses. We’re going by Price Is Right rules, winner is the person who is closest without going over. Place your bets soon!</p>
+  </div>
 
   <div id="banner"></div>
 
@@ -100,13 +106,13 @@
     <div class="stats" id="stats"></div>
   </section>
 
-  <footer>Closest guess wins. Updated as guesses come in.</footer>
+  <footer>Winner is the closest bet without going over.</footer>
 </main>
 
 <script>
   // ── Edit here ───────────────────────────────────────────────
   const guesses = [
-    { name: "Randall", lbs: 8,  oz: 2  },
+    { name: "Randall", lbs: 9,  oz: 3  },
     { name: "Ryan",    lbs: 8,  oz: 9  },
     { name: "Steph",   lbs: 9,  oz: 2  },
     { name: "Colleen", lbs: 9,  oz: 13 },
@@ -126,9 +132,11 @@
 
   let ranked = sorted;
   if (actualOz !== null) {
-    ranked = [...sorted].sort((a, b) => Math.abs(a.t - actualOz) - Math.abs(b.t - actualOz));
-    const best = Math.abs(ranked[0].t - actualOz);
-    ranked.forEach(g => g.win = Math.abs(g.t - actualOz) === best);
+    // Price Is Right: closest without going over; if everyone went over, closest wins
+    const over = g => g.t > actualOz;
+    ranked = [...sorted].sort((a, b) => (over(a) - over(b)) || Math.abs(a.t - actualOz) - Math.abs(b.t - actualOz));
+    const best = ranked[0].t;
+    ranked.forEach(g => g.win = g.t === best);
     const winners = ranked.filter(g => g.win).map(g => g.name).join(" & ");
     document.getElementById("banner").innerHTML =
       `<section class="card banner">He's here — ${fmt(actualOz)}! Closest guess: ${winners}.</section>`;
@@ -166,7 +174,7 @@
       <span class="rank">${i + 1}</span>
       <span class="who">${g.name}</span>
       <span class="wt">${fmt(g.t)}</span>
-      ${d !== null ? `<span class="diff">${d === 0 ? "exact!" : `${d} oz off`}</span>` : ""}
+      ${d !== null ? `<span class="diff">${d === 0 ? "exact!" : `${d} oz ${g.t > actualOz ? "over" : "under"}`}</span>` : ""}
     </li>`;
   }).join("");
 
