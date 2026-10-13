@@ -45,7 +45,6 @@
   .form-card iframe { display: block; width: 100%; height: 780px; border: 0; }
   .form-alt { font-size: .85rem; color: var(--muted); margin: 8px 12px; }
   .form-alt a { color: var(--accent); }
-  .note { font-size: .85rem; color: var(--muted); margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
   .intro { max-width: 65ch; margin-bottom: 28px; }
   .intro p { margin: 0 0 12px; }
   .card {
@@ -119,7 +118,6 @@
   <section class="card">
     <div class="label" id="listLabel">Guesses, lightest to heaviest</div>
     <ol id="list"></ol>
-    <p class="note" id="rejected" hidden></p>
   </section>
 
   <section class="card">
@@ -161,37 +159,35 @@
   });
 
   // Combine early bets with form responses, in submission order.
-  // A weight can only be claimed once; a later bet from the same name replaces their earlier one.
+  // A later bet from the same name replaces their earlier one. Several people may share a weight.
   function combine(responses) {
-    const byName = new Map(), byWeight = new Map(), rejected = [];
+    const byName = new Map();
     for (const b of [...earlyBets, ...responses]) {
-      const key = b.name.trim().toLowerCase();
-      const t = b.lbs * 16 + b.oz;
-      const holder = byWeight.get(t);
-      if (holder && holder !== key) { rejected.push({ name: b.name, t, takenBy: byName.get(holder).name }); continue; }
-      const prev = byName.get(key);
-      if (prev) byWeight.delete(prev.t);
-      byName.set(key, { name: b.name.trim(), t });
-      byWeight.set(t, key);
+      byName.set(b.name.trim().toLowerCase(), { name: b.name.trim(), t: b.lbs * 16 + b.oz });
     }
-    return { bets: [...byName.values()], rejected };
+    return [...byName.values()];
   }
 
-  function render({ bets, rejected }) {
-    const sorted = [...bets].sort((a, b) => a.t - b.t);
-    let ranked = sorted.map(b => ({ ...b, win: false }));
+  function render(bets) {
+    // One row per weight; everyone who picked it shares the row
+    const groups = new Map();
+    for (const b of bets) {
+      if (!groups.has(b.t)) groups.set(b.t, { t: b.t, names: [] });
+      groups.get(b.t).names.push(b.name);
+    }
+    const sorted = [...groups.values()].sort((a, b) => a.t - b.t);
+    const label = g => g.names.map(esc).join(" & ");
+    let ranked = sorted.map(g => ({ ...g, win: false }));
 
     if (actualOz !== null && ranked.length) {
       // Price Is Right: closest without going over; if everyone went over, closest wins
       const over = g => g.t > actualOz;
       ranked.sort((a, b) => (over(a) - over(b)) || Math.abs(a.t - actualOz) - Math.abs(b.t - actualOz));
-      const best = ranked[0].t;
-      ranked.forEach(g => g.win = g.t === best);
-      const winners = ranked.filter(g => g.win).map(g => esc(g.name)).join(" & ");
-      $("banner").innerHTML = `<section class="card banner">He's here: ${fmt(actualOz)}! Winner: ${winners}.</section>`;
+      ranked[0].win = true;
+      $("banner").innerHTML = `<section class="card banner">He's here: ${fmt(actualOz)}! Winner: ${label(ranked[0])}.</section>`;
       $("listLabel").textContent = "Leaderboard";
     }
-    const winSet = new Set(ranked.filter(g => g.win).map(g => g.t));
+    const winT = ranked.find(g => g.win)?.t;
 
     // Number line
     const track = $("track");
@@ -208,8 +204,8 @@
       sorted.forEach((g, i) => {
         const top = [36, 4, 20][i % 3];
         track.insertAdjacentHTML("beforeend",
-          `<div class="pin${winSet.has(g.t) ? " win" : ""}" style="left:${pct(g.t)}%;top:${top}px">
-             <div class="name">${esc(g.name)}</div>
+          `<div class="pin${g.t === winT ? " win" : ""}" style="left:${pct(g.t)}%;top:${top}px">
+             <div class="name">${label(g)}</div>
              <div style="height:${44 - top}px;width:1px;background:var(--line);margin:0 auto"></div>
              <div class="dot"></div></div>`);
       });
@@ -224,20 +220,14 @@
       const d = actualOz !== null ? Math.abs(g.t - actualOz) : null;
       return `<li class="${g.win ? "win" : ""}">
         <span class="rank">${i + 1}</span>
-        <span class="who">${esc(g.name)}</span>
+        <span class="who">${label(g)}</span>
         <span class="wt">${fmt(g.t)}</span>
         ${d !== null ? `<span class="diff">${d === 0 ? "exact!" : `${d} oz ${g.t > actualOz ? "over" : "under"}`}</span>` : ""}
       </li>`;
     }).join("");
 
-    // Bets that tried to take a weight someone already had
-    const rj = $("rejected");
-    rj.hidden = !rejected.length;
-    rj.innerHTML = rejected.length ? "Not counted, weight already taken: " +
-      rejected.map(r => `${esc(r.name)} (${fmt(r.t)}, taken by ${esc(r.takenBy)})`).join("; ") + "." : "";
-
     // Stats
-    const ts = sorted.map(g => g.t);
+    const ts = bets.map(b => b.t).sort((a, b) => a - b);
     if (!ts.length) { $("stats").innerHTML = ""; return; }
     const avg = Math.round(ts.reduce((a, b) => a + b, 0) / ts.length);
     const mid = ts.length % 2 ? ts[(ts.length - 1) / 2]
