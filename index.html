@@ -63,7 +63,7 @@
   .rank { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft);
     color: var(--accent); font-weight: 600; font-size: .85rem;
     display: grid; place-items: center; flex-shrink: 0; }
-  .who { flex: 1; font-weight: 500; }
+  .who { flex: 1; font-weight: 500; min-width: 0; display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
   .wt { font-variant-numeric: tabular-nums; font-weight: 600; }
   .diff { font-size: .8rem; color: var(--muted); min-width: 72px; text-align: right;
     font-variant-numeric: tabular-nums; }
@@ -171,14 +171,14 @@
     }
 
     // List
-    $("list").innerHTML = ranked.flatMap((g, i) => {
+    $("list").innerHTML = ranked.map((g, i) => {
       const d = actualOz !== null ? Math.abs(g.t - actualOz) : null;
-      return g.names.map(name => `<li class="${g.win ? "win" : ""}">
+      return `<li class="${g.win ? "win" : ""}">
         <span class="rank">${i + 1}</span>
-        <span class="who">${esc(name)}</span>
+        <span class="who">${g.names.map(n => `<span>${esc(n)}</span>`).join("")}</span>
         <span class="wt">${fmt(g.t)}</span>
         ${d !== null ? `<span class="diff">${d === 0 ? "exact!" : `${d} oz ${g.t > actualOz ? "over" : "under"}`}</span>` : ""}
-      </li>`);
+      </li>`;
     }).join("");
 
     // Stats
