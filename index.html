@@ -54,19 +54,6 @@
   .label { font-size: .75rem; font-weight: 600; letter-spacing: .08em;
     text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
 
-  /* Number line */
-  .track { position: relative; height: 150px; margin: 8px 8px 0; }
-  .axis { position: absolute; left: 0; right: 0; top: 100px; height: 2px; background: var(--line); }
-  .tick { position: absolute; top: 108px; transform: translateX(-50%);
-    font-size: .75rem; color: var(--muted); }
-  .tick::before { content: ""; position: absolute; left: 50%; top: -10px;
-    width: 1px; height: 6px; background: var(--line); }
-  .pin { position: absolute; transform: translateX(-50%); text-align: center; }
-  .pin .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent);
-    border: 2px solid var(--card); margin: 0 auto; }
-  .pin .name { font-size: .72rem; font-weight: 600; white-space: nowrap; }
-  .pin.win .dot { background: var(--win); }
-  .pin.actual .dot { background: var(--ink); width: 14px; height: 14px; }
 
   /* List */
   ol { list-style: none; margin: 0; padding: 0; }
@@ -111,17 +98,12 @@
   <div id="banner"></div>
 
   <section class="card">
-    <div class="label">The spread</div>
-    <div class="track" id="track"><div class="axis"></div></div>
+    <div class="stats" id="stats"></div>
   </section>
 
   <section class="card">
     <div class="label" id="listLabel">Guesses, lightest to heaviest</div>
     <ol id="list"></ol>
-  </section>
-
-  <section class="card">
-    <div class="stats" id="stats"></div>
   </section>
 
   <footer>Winner is the closest bet without going over.</footer>
@@ -177,7 +159,6 @@
     }
     const sorted = [...groups.values()].sort((a, b) => a.t - b.t);
     const label = g => g.names.map(esc).join(" & ");
-    const stacked = g => g.names.map(esc).join("<br>");
     let ranked = sorted.map(g => ({ ...g, win: false }));
 
     if (actualOz !== null && ranked.length) {
@@ -187,33 +168,6 @@
       ranked[0].win = true;
       $("banner").innerHTML = `<section class="card banner">He's here: ${fmt(actualOz)}! Winner: ${label(ranked[0])}.</section>`;
       $("listLabel").textContent = "Leaderboard";
-    }
-    const winT = ranked.find(g => g.win)?.t;
-
-    // Number line
-    const track = $("track");
-    track.innerHTML = '<div class="axis"></div>';
-    const all = sorted.map(g => g.t).concat(actualOz ?? []);
-    if (all.length) {
-      const lo = Math.floor(Math.min(...all) / 16) * 16;
-      const hi = Math.ceil((Math.max(...all) + 1) / 16) * 16;
-      const pct = oz => ((oz - lo) / (hi - lo)) * 100;
-      for (let l = lo; l <= hi; l += 16) {
-        track.insertAdjacentHTML("beforeend", `<div class="tick" style="left:${pct(l)}%">${l / 16} lb</div>`);
-      }
-      // Stagger labels across three heights so close bets don't overlap
-      sorted.forEach((g, i) => {
-        const stem = [8, 40, 24][i % 3];
-        track.insertAdjacentHTML("beforeend",
-          `<div class="pin${g.t === winT ? " win" : ""}" style="left:${pct(g.t)}%;bottom:43px">
-             <div class="name">${stacked(g)}</div>
-             <div style="height:${stem}px;width:1px;background:var(--line);margin:0 auto"></div>
-             <div class="dot"></div></div>`);
-      });
-      if (actualOz !== null) {
-        track.insertAdjacentHTML("beforeend",
-          `<div class="pin actual" style="left:${pct(actualOz)}%;top:93px"><div class="dot"></div></div>`);
-      }
     }
 
     // List
