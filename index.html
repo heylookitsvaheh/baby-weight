@@ -55,9 +55,9 @@
     text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
 
   /* Number line */
-  .track { position: relative; height: 120px; margin: 8px 8px 0; }
-  .axis { position: absolute; left: 0; right: 0; top: 70px; height: 2px; background: var(--line); }
-  .tick { position: absolute; top: 78px; transform: translateX(-50%);
+  .track { position: relative; height: 150px; margin: 8px 8px 0; }
+  .axis { position: absolute; left: 0; right: 0; top: 100px; height: 2px; background: var(--line); }
+  .tick { position: absolute; top: 108px; transform: translateX(-50%);
     font-size: .75rem; color: var(--muted); }
   .tick::before { content: ""; position: absolute; left: 50%; top: -10px;
     width: 1px; height: 6px; background: var(--line); }
@@ -177,6 +177,7 @@
     }
     const sorted = [...groups.values()].sort((a, b) => a.t - b.t);
     const label = g => g.names.map(esc).join(" & ");
+    const stacked = g => g.names.map(esc).join("<br>");
     let ranked = sorted.map(g => ({ ...g, win: false }));
 
     if (actualOz !== null && ranked.length) {
@@ -202,28 +203,28 @@
       }
       // Stagger labels across three heights so close bets don't overlap
       sorted.forEach((g, i) => {
-        const top = [36, 4, 20][i % 3];
+        const stem = [8, 40, 24][i % 3];
         track.insertAdjacentHTML("beforeend",
-          `<div class="pin${g.t === winT ? " win" : ""}" style="left:${pct(g.t)}%;top:${top}px">
-             <div class="name">${label(g)}</div>
-             <div style="height:${44 - top}px;width:1px;background:var(--line);margin:0 auto"></div>
+          `<div class="pin${g.t === winT ? " win" : ""}" style="left:${pct(g.t)}%;bottom:43px">
+             <div class="name">${stacked(g)}</div>
+             <div style="height:${stem}px;width:1px;background:var(--line);margin:0 auto"></div>
              <div class="dot"></div></div>`);
       });
       if (actualOz !== null) {
         track.insertAdjacentHTML("beforeend",
-          `<div class="pin actual" style="left:${pct(actualOz)}%;top:63px"><div class="dot"></div></div>`);
+          `<div class="pin actual" style="left:${pct(actualOz)}%;top:93px"><div class="dot"></div></div>`);
       }
     }
 
     // List
-    $("list").innerHTML = ranked.map((g, i) => {
+    $("list").innerHTML = ranked.flatMap((g, i) => {
       const d = actualOz !== null ? Math.abs(g.t - actualOz) : null;
-      return `<li class="${g.win ? "win" : ""}">
+      return g.names.map(name => `<li class="${g.win ? "win" : ""}">
         <span class="rank">${i + 1}</span>
-        <span class="who">${label(g)}</span>
+        <span class="who">${esc(name)}</span>
         <span class="wt">${fmt(g.t)}</span>
         ${d !== null ? `<span class="diff">${d === 0 ? "exact!" : `${d} oz ${g.t > actualOz ? "over" : "under"}`}</span>` : ""}
-      </li>`;
+      </li>`);
     }).join("");
 
     // Stats
