@@ -86,14 +86,6 @@
     <p>Below are everyone’s guesses. We’re going by Price Is Right rules, winner is the person who is closest without going over. Place your bets soon!</p>
   </div>
 
-  <div class="bet">
-    <button class="btn" id="openBet" type="button" aria-expanded="false" aria-controls="betForm">Make My Bet</button>
-    <section class="card form-card" id="betForm" hidden>
-      <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSeIociEYFYvbzJ9wreM9ONb6yTNyPyKtasvdHk9tzTlRkEqmw/viewform?embedded=true"
-        title="Final Baby Weight Guesses" loading="lazy">Loading…</iframe>
-      <p class="form-alt">Form not showing? <a href="https://forms.gle/Bdtxh7Ceo8SNMDzq5" target="_blank" rel="noopener">Open it in a new tab</a>.</p>
-    </section>
-  </div>
 
   <div id="banner"></div>
 
@@ -133,12 +125,6 @@
   const fmt = oz => `${Math.floor(oz / 16)} lbs, ${oz % 16} oz`;
   const actualOz = actual ? actual.lbs * 16 + actual.oz : null;
 
-  $("openBet").addEventListener("click", () => {
-    const f = $("betForm");
-    f.hidden = !f.hidden;
-    $("openBet").setAttribute("aria-expanded", String(!f.hidden));
-    $("openBet").textContent = f.hidden ? "Make My Bet" : "Hide form";
-  });
 
   // Combine early bets with form responses, in submission order.
   // A later bet from the same name replaces their earlier one. Several people may share a weight.
