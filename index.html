@@ -68,7 +68,7 @@
   .diff { font-size: .8rem; color: var(--muted); min-width: 72px; text-align: right;
     font-variant-numeric: tabular-nums; }
   li.win .rank { background: var(--win-soft); color: var(--win); }
-  li.win .who::after { content: " 🏆"; }
+  li.win .who span:first-child::after { content: " 🏆"; }
 
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   .stat .v { font-family: Fraunces, Georgia, serif; font-size: 1.4rem; font-weight: 700; }
@@ -80,9 +80,9 @@
 </head>
 <body>
 <main>
-  <h1>How big will Donatello Versace be?</h1>
+  <h1>How big will Raffi Scott Hartoonian be?</h1>
   <div class="intro">
-    <p>We are ONE WEEK away from Donatello’s arrival! Everyone is guessing what the baby’s weight will be at birth. For context: The baby weighed approximately 4lbs, 6 oz at 30 weeks and 7lbs, 5oz at 34 weeks. C-section is going to be at 39 weeks. The biggest baby born in Colleen’s family was over 11 lbs, but she and I were both about 8.5 lbs.</p>
+    <p>We are ONE WEEK away from Raffi’s arrival! Everyone is guessing what the baby’s weight will be at birth. For context: The baby weighed approximately 4lbs, 6 oz at 30 weeks and 7lbs, 5oz at 34 weeks. C-section is going to be at 39 weeks. The biggest baby born in Colleen’s family was over 11 lbs, but she and I were both about 8.5 lbs.</p>
     <p>Below are everyone’s guesses. We’re going by Price Is Right rules, winner is the person who is closest without going over. Place your bets soon!</p>
   </div>
 
@@ -115,7 +115,7 @@
     { name: "Michelle Ives", lbs: 9, oz: 5 },
   ];
   // When he arrives, fill this in, e.g. { lbs: 9, oz: 4 }
-  const actual = null;
+  const actual = { lbs: 9, oz: 2.5 };
   // Form responses ("Form Responses 1" tab), read live
   const SHEET_ID = "11kz2Vt51pfqsCJg7f_KmXuYqfyZcGPegPcZmfJ2JKlY";
   const SHEET_TAB = "Form Responses 1";
@@ -153,7 +153,7 @@
       const over = g => g.t > actualOz;
       ranked.sort((a, b) => (over(a) - over(b)) || Math.abs(a.t - actualOz) - Math.abs(b.t - actualOz));
       ranked[0].win = true;
-      $("banner").innerHTML = `<section class="card banner">He's here: ${fmt(actualOz)}! Winner: ${label(ranked[0])}.</section>`;
+      $("banner").innerHTML = `<section class="card banner">Raffi is here: ${fmt(actualOz)}! Winner: ${label(ranked[0])}.</section>`;
       $("listLabel").textContent = "Leaderboard";
     }
 
@@ -182,7 +182,7 @@
   }
 
   // Read the form responses from the Google Sheet (JSONP, so no login or CORS setup is needed)
-  const num = v => { const n = parseInt(String(v ?? "").replace(/[^\d]/g, ""), 10); return Number.isFinite(n) ? n : NaN; };
+  const num = v => { const n = parseFloat(String(v ?? "").replace(/[^\d.]/g, "")); return Number.isFinite(n) ? n : NaN; };
   window.__betsLoaded = data => {
     try {
       const table = data && data.table;
